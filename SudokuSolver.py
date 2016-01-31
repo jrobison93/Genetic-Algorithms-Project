@@ -12,11 +12,13 @@ board = []
 blank_spaces = 0
 population = []
 max_chromes = 20
+max_gens = 10000
 end_fitness = 27
 generation = 0
 min_fitness = 0
 ave_fitness = 0
 max_fitness = 0
+cur_pop = 0
 output = open("output.txt", "w")
 
 
@@ -111,7 +113,7 @@ def assessFitness(chromo):
 
 def initPopulation():
     for i in range(max_chromes):
-        population.append(chromosome(size=blank_spaces))
+        population[cur_pop].append(chromosome(size=blank_spaces))
 
 
 print("Reading file to get board:\n")
@@ -124,7 +126,53 @@ for i in range(9):
         if board[i][j] == '-':
             blank_spaces += 1
 
+
+def performSelection():
+    parent1 = 0
+    parent2 = 0
+    child1 = 0 
+    child2 = 0    
+
+    for i in len(population[cur_pop]):
+        child1 = i
+        child2 = i + 1
+        
+        parent1 = selectParent()
+        parent2 = selectParent()
+        
+        performReproduction(parent1, parent2, child1, child2)
+
+
 printBoard(board)
 
 initPopulation()
 fitnessCheck()
+
+while generation < max_gens:
+    cur_crossovers = cur_mutations = 0
+
+    performSelection()
+
+    cur_pop = 1 if cur_pop == 0 else 0
+
+    fitnessCheck()
+
+    if generation % 100 == 0:
+        print("\tGeneration " + str(generation))
+        print("\tmax_fitness = " + str(max_fitness))
+        print("\tmin_fitness = " + str(min_fitness))
+        print("\tave_fitness = " + str(ave_fitness) + "\n")
+
+    if generation > (max_gens * 0.25):
+        if ave_fitness / max_fitness > 0.98:
+            print("Converged")
+            break
+
+    if max_fitness == end_fitness:
+        print("Solution found")
+        break
+
+for chromo in population[cur_pop]:
+    if chromo.fitness == max_fitness:
+        print("The derived solution to this board is: ")
+        printChromoBoard(chromo)
