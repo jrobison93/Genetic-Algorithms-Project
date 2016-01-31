@@ -5,13 +5,31 @@ Created on Sat Jan 30 18:02:47 2016
 @author: John Robison
 """
 
+from random import randint
+
+
+board = []
+blank_spaces = 0
+population = []
+max_chromes = 20
+end_fitness = 27
+generation = 0
+min_fitness = 0
+ave_fitness = 0
+max_fitness = 0
+output = open("output.txt", "w")
+
 
 class chromosome:
-    genomes = []
-    fitness = 0
+
+    def __init__(self, size):
+        self.genomes = []
+        self.fitness = 0
+        for i in range(size):
+            self.genomes.append(randint(1, 9))
 
 
-def printBoard():
+def printBoard(given):
     for i in range(9):
         if i % 3 == 0 and i != 0:
             print("\n-----------")
@@ -19,21 +37,40 @@ def printBoard():
         for j in range(9):
             if j % 3 == 0 and j != 0:
                 print("|", end='')
-            print(board[i][j], end='')
+            print(given[i][j], end='')
 
         print()
 
 
+def fitnessCheck():
+    ave_fitness = 0
+    max_fitness = 0
+    min_fitness = 27
+    total_fitness = 0
+    for chromo in population:
+        assessFitness(chromo)
+        total_fitness += chromo.fitness
+        max_fitness = max(max_fitness, chromo.fitness)
+        min_fitness = min(min_fitness, chromo.fitness)
+    ave_fitness = total_fitness / len(population)
+
+    output.write(str(generation) + ", " + str(min_fitness) + ", " +
+                 str(max_fitness) + ", " + str(ave_fitness) + "\n")
+
+
 def assessFitness(chromo):
-    score = 32
+    score = 27
     temp_board = []
     count = 0
 
     for i in range(9):
+        temp_board.append([])
         for j in range(9):
             if board[i][j] == '-':
-                temp_board[i][j] = chromo.genome[count]
+                temp_board[i].append(chromo.genomes[count])
                 count += 1
+            else:
+                temp_board[i].append(board[i][j])
 
     for i in range(9):
         for j in range(1, 10):
@@ -68,13 +105,14 @@ def assessFitness(chromo):
             if squares[i].count(j) != 1:
                 score -= 1
                 break
-    
-    print(score)
+
     chromo.fitness = score
 
 
-board = []
-blank_spaces = 0
+def initPopulation():
+    for i in range(max_chromes):
+        population.append(chromosome(size=blank_spaces))
+
 
 print("Reading file to get board:\n")
 f = open("board.txt", "r")
@@ -86,6 +124,7 @@ for i in range(9):
         if board[i][j] == '-':
             blank_spaces += 1
 
-printBoard()
+printBoard(board)
 
-
+initPopulation()
+fitnessCheck()
