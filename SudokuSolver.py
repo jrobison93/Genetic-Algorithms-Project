@@ -7,20 +7,21 @@ Created on Sat Jan 30 18:02:47 2016
 
 from random import randint
 from random import random
+from copy import deepcopy
 
 
 board = []
 blank_spaces = 0
 population = []
-max_chromes = 20
-max_gens = 100000
-end_fitness = 27
+max_chromes = 25
+max_gens = 100000000
+end_fitness = 1323
 generation = 0
 min_fitness = 0
 ave_fitness = 0
 max_fitness = 0
 total_fitness = 0
-mutation_probability = 0.60
+mutation_probability = 0.95
 cur_pop = 0
 output = open("output.txt", "w")
 
@@ -47,24 +48,7 @@ def printBoard(given):
         print()
 
 
-def fitnessCheck():
-    ave_fitness = 0
-    max_fitness = 0
-    min_fitness = 27
-    total_fitness = 0
-    for chromo in population[cur_pop]:
-        assessFitness(chromo)
-        total_fitness += chromo.fitness
-        max_fitness = max(max_fitness, chromo.fitness)
-        min_fitness = min(min_fitness, chromo.fitness)
-    ave_fitness = total_fitness / len(population)
-
-    output.write(str(generation) + ", " + str(min_fitness) + ", " +
-                 str(max_fitness) + ", " + str(ave_fitness) + "\n")
-
-
-def assessFitness(chromo):
-    score = 27
+def printChromoBoard(chromo):
     temp_board = []
     count = 0
 
@@ -77,11 +61,53 @@ def assessFitness(chromo):
             else:
                 temp_board[i].append(board[i][j])
 
+    printBoard(temp_board)
+
+
+def fitnessCheck():
+    global ave_fitness
+    ave_fitness = 0
+    global max_fitness
+    max_fitness = 0
+    global min_fitness
+    min_fitness = 1323
+    global total_fitness
+    total_fitness = 0
+    for chromo in population[cur_pop]:
+        assessFitness(chromo)
+        total_fitness += chromo.fitness
+        max_fitness = max(max_fitness, chromo.fitness)
+        min_fitness = min(min_fitness, chromo.fitness)
+    ave_fitness = total_fitness / len(population[cur_pop])
+
+    output.write(str(generation) + ", " + str(min_fitness) + ", " +
+                 str(max_fitness) + ", " + str(ave_fitness) + "\n")
+
+
+def assessFitness(chromo):
+    score = 0
+    temp_board = []
+    count = 0
+
     for i in range(9):
+        temp_board.append([])
+        for j in range(9):
+            if board[i][j] == '-':
+                temp_board[i].append(chromo.genomes[count])
+                count += 1
+            else:
+                temp_board[i].append(int(board[i][j]))
+
+    for i in range(9):
+        score += len(set(temp_board[i]))
+        consistent = True
         for j in range(1, 10):
             if temp_board[i].count(j) != 1:
-                score -= 1
+                score -= 2 ** temp_board[i].count(j)
+                consistent = False
                 break
+        if consistent:
+            score += 40
 
     cols = []
 
@@ -91,10 +117,15 @@ def assessFitness(chromo):
             cols[i].append(temp_board[j][i])
 
     for i in range(9):
+        score += len(set(cols[i]))
+        consistent = True
         for j in range(1, 10):
             if cols[i].count(j) != 1:
-                score -= 1
+                score -= 2 ** cols[i].count(j)
+                consistent = False
                 break
+        if consistent:
+            score += 40
 
     squares = []
 
@@ -106,10 +137,15 @@ def assessFitness(chromo):
                     squares[j + 3 * i].append(temp_board[k + 3 * j][l + 3 * i])
 
     for i in range(9):
+        score += len(set(squares[i]))
+        consistent = True
         for j in range(1, 10):
             if squares[i].count(j) != 1:
-                score -= 1
+                score -= 2 ** squares[i].count(j)
+                consistent = False
                 break
+        if consistent:
+            score += 40
 
     chromo.fitness = score
 
@@ -128,13 +164,21 @@ def performSelection():
     child1 = 0
     child2 = 0
 
-    for i in range(0, len(population[cur_pop]), 2):
+    population[cur_pop].sort(key=lambda x: x.fitness, reverse=True)
+    next_pop = 1 if cur_pop == 0 else 0
+
+    for i in range(0, len(population[cur_pop]) - 1, 2):
         parent1 = selectParent()
         parent2 = selectParent()
         child1 = i
         child2 = i + 1
 
         performReproduction(parent1, parent2, child1, child2)
+
+    performReproduction(0, 0, len(population[cur_pop]) - 3,
+                        len(population[cur_pop]) - 2)
+    population[next_pop][len(population[cur_pop]) - 1] = deepcopy(
+        population[cur_pop][0])
 
 
 def selectParent():
@@ -154,10 +198,10 @@ def selectParent():
 
 
 def performReproduction(parent1, parent2, child1, child2):
-    cross_point = randint(1, blank_spaces)
+    cross_point = randint(1, len(population[cur_pop][parent1].genomes))
     next_pop = 1 if cur_pop == 0 else 0
 
-    for i in range(cross_point):
+    for i in range(0, cross_point):
         population[next_pop][child1].genomes[i] = mutate(
             population[cur_pop][parent1].genomes[i])
         population[next_pop][child2].genomes[i] = mutate(
@@ -181,6 +225,7 @@ print("Reading file to get board:\n")
 f = open("board.txt", "r")
 for i in range(9):
     board.append(list(f.readline().strip()))
+f.close()
 
 for i in range(9):
     for j in range(9):
@@ -206,6 +251,7 @@ while generation < max_gens:
         print("\tmax_fitness = " + str(max_fitness))
         print("\tmin_fitness = " + str(min_fitness))
         print("\tave_fitness = " + str(ave_fitness) + "\n")
+        printChromoBoard(population[1 if cur_pop == 0 else 0][0])
 
     generation += 1
 
@@ -214,7 +260,7 @@ while generation < max_gens:
             print("Converged")
             break
 
-    if max_fitness == end_fitness:
+    if max_fitness >= end_fitness:
         print("Solution found")
         break
 
@@ -222,3 +268,6 @@ for chromo in population[cur_pop]:
     if chromo.fitness == max_fitness:
         print("The derived solution to this board is: ")
         printChromoBoard(chromo)
+        break
+
+output.close()
