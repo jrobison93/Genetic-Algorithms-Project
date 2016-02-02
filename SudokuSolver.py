@@ -13,7 +13,7 @@ from copy import deepcopy
 board = []
 blank_spaces = 0
 population = []
-max_chromes = 25
+max_chromes = 21
 max_gens = 100000000
 end_fitness = 1323
 generation = 0
@@ -21,11 +21,16 @@ min_fitness = 0
 ave_fitness = 0
 max_fitness = 0
 total_fitness = 0
+staleness_factor = 10
+staleness_count = 0
+previous_max = 0
 mutation_probability = 0.95
+mutation_change = 0.0025
 cur_pop = 0
 output = open("output.txt", "w")
 
 
+# A class that will store Chromosome information such as genomes and fitness
 class chromosome:
 
     def __init__(self, size):
@@ -34,11 +39,11 @@ class chromosome:
         for i in range(size):
             self.genomes.append(randint(1, 9))
 
-
+# Helper function which prints a Sudoku board to the console
 def printBoard(given):
     for i in range(9):
         if i % 3 == 0 and i != 0:
-            print("\n-----------")
+            print("---+---+---")
 
         for j in range(9):
             if j % 3 == 0 and j != 0:
@@ -48,6 +53,7 @@ def printBoard(given):
         print()
 
 
+# Helper function which prints a chromosome as a Sudoku board to the console
 def printChromoBoard(chromo):
     temp_board = []
     count = 0
@@ -64,6 +70,8 @@ def printChromoBoard(chromo):
     printBoard(temp_board)
 
 
+# Determines the fitness of each chromosome in the current population
+# Maintains statistics on the populations and stores them to a file
 def fitnessCheck():
     global ave_fitness
     ave_fitness = 0
@@ -84,6 +92,10 @@ def fitnessCheck():
                  str(max_fitness) + ", " + str(ave_fitness) + "\n")
 
 
+# Determines the fitness for an individual chromosome
+#
+# The fitness is determined by the unique number of values in each row,
+# column, and square as well as the consistency of each row, column, and square
 def assessFitness(chromo):
     score = 0
     temp_board = []
@@ -150,6 +162,7 @@ def assessFitness(chromo):
     chromo.fitness = score
 
 
+# Creates the starting population
 def initPopulation():
     for i in range(max_chromes):
         population.append([])
@@ -158,6 +171,10 @@ def initPopulation():
         population[1 if cur_pop == 0 else 0].append(chromosome(blank_spaces))
 
 
+# Selects the parents and children of the next generation, then creates that
+# generation
+#
+# Maintains the chromosome with the max_fitness between populations
 def performSelection():
     parent1 = 0
     parent2 = 0
@@ -167,7 +184,7 @@ def performSelection():
     population[cur_pop].sort(key=lambda x: x.fitness, reverse=True)
     next_pop = 1 if cur_pop == 0 else 0
 
-    for i in range(0, len(population[cur_pop]) - 1, 2):
+    for i in range(0, len(population[cur_pop]) - 3, 2):
         parent1 = selectParent()
         parent2 = selectParent()
         child1 = i
@@ -180,11 +197,12 @@ def performSelection():
     population[next_pop][len(population[cur_pop]) - 1] = deepcopy(
         population[cur_pop][0])
 
-
+# Determines which chromosome should be the parent of a child for the next
+# generation. This is done through a roulette-wheel process
 def selectParent():
     ret_fitness = 0.0
-    fit_marker = random() * total_fitness * 0.25
-    chromo = 0
+    fit_marker = random() * total_fitness
+    chromo = randint(0, max_chromes - 1)
 
     while True:
         ret_fitness += population[cur_pop][chromo].fitness
@@ -197,23 +215,35 @@ def selectParent():
             chromo = 0
 
 
+# When a mommy and a daddy love each other very much, they get split into
+# three random parts, mutated, and then Frankensteined back together to
+# create their children.
 def performReproduction(parent1, parent2, child1, child2):
-    cross_point = randint(1, len(population[cur_pop][parent1].genomes))
+    cross_point1 = randint(1, len(population[cur_pop][parent1].genomes))
+    cross_point2 = randint(cross_point1,
+                           len(population[cur_pop][parent1].genomes))
     next_pop = 1 if cur_pop == 0 else 0
 
-    for i in range(0, cross_point):
+    for i in range(0, cross_point1):
         population[next_pop][child1].genomes[i] = mutate(
             population[cur_pop][parent1].genomes[i])
         population[next_pop][child2].genomes[i] = mutate(
             population[cur_pop][parent2].genomes[i])
 
-    for i in range(cross_point, blank_spaces):
+    for i in range(cross_point1, cross_point2):
+        population[next_pop][child1].genomes[i] = mutate(
+            population[cur_pop][parent1].genomes[i])
+        population[next_pop][child2].genomes[i] = mutate(
+            population[cur_pop][parent2].genomes[i])
+
+    for i in range(cross_point2, blank_spaces):
         population[next_pop][child1].genomes[i] = mutate(
             population[cur_pop][parent2].genomes[i])
         population[next_pop][child2].genomes[i] = mutate(
             population[cur_pop][parent1].genomes[i])
 
 
+# Randomly changes the value of a genome
 def mutate(gene):
     prob = random()
 
@@ -251,6 +281,17 @@ while generation < max_gens:
         print("\tmax_fitness = " + str(max_fitness))
         print("\tmin_fitness = " + str(min_fitness))
         print("\tave_fitness = " + str(ave_fitness) + "\n")
+
+        if previous_max == max_fitness:
+            if staleness_count >= staleness_factor:
+                staleness_count = 0
+                mutation_probability -= mutation_change
+            else:
+                staleness_count += 1
+        else:
+            staleness_count = 0
+
+        previous_max = max_fitness
         printChromoBoard(population[1 if cur_pop == 0 else 0][0])
 
     generation += 1
